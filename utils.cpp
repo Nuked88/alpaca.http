@@ -24,19 +24,11 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
         } else if (arg == "-t" || arg == "--threads") {
             params.n_threads = std::stoi(argv[++i]);
         } else if (arg == "-p" || arg == "--prompt") {
-            params.interactive = false;
-            params.interactive_start = false;
-            params.use_color = false;
+          
 
             params.prompt = argv[++i];
         } else if (arg == "-f" || arg == "--file") {
-
-            params.interactive = false;
-            params.interactive_start = false;
-            params.use_color = false;
-
             std::ifstream file(argv[++i]);
-
             std::copy(std::istreambuf_iterator<char>(file),
                     std::istreambuf_iterator<char>(),
                     back_inserter(params.prompt));
@@ -59,16 +51,18 @@ bool gpt_params_parse(int argc, char ** argv, gpt_params & params) {
             params.n_batch = std::stoi(argv[++i]);
         } else if (arg == "-m" || arg == "--model") {
             params.model = argv[++i];
-        } else if (arg == "-i" || arg == "--interactive") {
-            params.interactive = true;
-        } else if (arg == "--interactive-start") {
-            params.interactive = true;
-            params.interactive_start = true;
-        } else if (arg == "--color") {
+        }  else if (arg == "--color") {
             params.use_color = true;
         } else if (arg == "-r" || arg == "--reverse-prompt") {
             params.antiprompt = argv[++i];
-        } else if (arg == "-h" || arg == "--help") {
+        }
+        else if (arg == "-sp" || arg == "--server-port") {
+            params.serverport = std::stof(argv[++i]);
+        }
+        else if (arg == "-sa" || arg == "--server-address") {
+            params.serveraddress = argv[++i];
+        }
+        else if (arg == "-h" || arg == "--help") {
             gpt_print_usage(argc, argv, params);
             exit(0);
         } else {
@@ -86,8 +80,8 @@ void gpt_print_usage(int argc, char ** argv, const gpt_params & params) {
     fprintf(stderr, "\n");
     fprintf(stderr, "options:\n");
     fprintf(stderr, "  -h, --help            show this help message and exit\n");
-    fprintf(stderr, "  -i, --interactive     run in interactive mode\n");
-    fprintf(stderr, "  --interactive-start   run in interactive mode and poll user input at startup\n");
+    fprintf(stderr, "  -sp, --server-port     change the default 8080 port\n");
+    fprintf(stderr, "  -sa, --server-address     change the default 0.0.0.0 address\n");
     fprintf(stderr, "  -r PROMPT, --reverse-prompt PROMPT\n");
     fprintf(stderr, "                        in interactive mode, poll user input upon seeing PROMPT\n");
     fprintf(stderr, "  --color               colorise output to distinguish prompt and user input from generations\n");

@@ -176,7 +176,7 @@ $(info I CC:       $(CCV))
 $(info I CXX:      $(CXXV))
 $(info )
 
-default: chat quantize
+default: server quantize
 
 #
 # Build library
@@ -191,16 +191,16 @@ utils.o: utils.cpp utils.h
 clean:
 	rm -f *.o main quantize
 
-chat: chat.cpp ggml.o utils.o
-	$(CXX) $(CXXFLAGS) chat.cpp ggml.o utils.o -o chat $(LDFLAGS)
+server: server.cpp ggml.o utils.o
+	$(CXX) $(CXXFLAGS) server.cpp ggml.o utils.o -o server $(LDFLAGS)
 
-chat_mac: chat.cpp ggml.c utils.cpp
+server_mac: server.cpp ggml.c utils.cpp
 	$(CC)  $(CFLAGS)   -c ggml.c -o ggml_x86.o -target x86_64-apple-macos
 	$(CC)  $(CFLAGS)   -c ggml.c -o ggml_arm.o -target arm64-apple-macos
 	
-	$(CXX) $(CXXFLAGS) chat.cpp ggml_x86.o utils.cpp -o chat_x86 $(LDFLAGS) -target x86_64-apple-macos
-	$(CXX) $(CXXFLAGS) chat.cpp ggml_arm.o utils.cpp -o chat_arm $(LDFLAGS) -target arm64-apple-macos
-	lipo -create -output chat_mac chat_x86 chat_arm
+	$(CXX) $(CXXFLAGS) server.cpp ggml_x86.o utils.cpp -o server_x86 $(LDFLAGS) -target x86_64-apple-macos
+	$(CXX) $(CXXFLAGS) server.cpp ggml_arm.o utils.cpp -o server_arm $(LDFLAGS) -target arm64-apple-macos
+	lipo -create -output server_mac server_x86 server_arm
 
 quantize: quantize.cpp ggml.o utils.o
 	$(CXX) $(CXXFLAGS) quantize.cpp ggml.o utils.o -o quantize $(LDFLAGS)

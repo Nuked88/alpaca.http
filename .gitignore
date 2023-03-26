@@ -7,6 +7,7 @@
 .vscode/
 .DS_Store
 
+boost/
 build/
 build-em/
 build-debug/
@@ -21,6 +22,7 @@ models/*
 
 /main
 /quantize
+/server
 
 arm_neon.h
 compile_commands.json
@@ -30,6 +32,7 @@ compile_commands.json
 *.filters
 *.cmake
 *.sln
+*.user
 x64/
 Debug/
 Release/

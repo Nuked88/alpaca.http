@@ -30,11 +30,12 @@ struct gpt_params {
 
     std::string model = "ggml-alpaca-7b-q4.bin"; // model path
     std::string prompt;
+    std::int32_t serverport = 8080;
+
+    std::string serveraddress = "0.0.0.0";
 
     bool use_color = true; // use color to distinguish generations and inputs
 
-    bool interactive = true; // interactive mode
-    bool interactive_start = true; // reverse prompt immediately
     std::string antiprompt = ""; // string upon seeing which more user input is prompted
 };
 

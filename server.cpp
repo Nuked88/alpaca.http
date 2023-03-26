@@ -1,7 +1,5 @@
 #include "ggml.h"
-
 #include "utils.h"
-
 #include <cassert>
 #include <cmath>
 #include <cstdio>
@@ -10,6 +8,33 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <chrono>
+
+
+// Boost Beast library
+#include <boost/asio.hpp>
+#include <boost/beast.hpp>
+#include <boost/beast/http.hpp>
+#include <iostream>
+
+
+
+/* 
+This project uses the nlohmann-json library (https://github.com/nlohmann/json), distributed under the MIT License.
+MIT License 
+
+Copyright (c) 2013-2022 Niels Lohmann
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+*/
+// Niels Lohmann library 
+#include <nlohmann/json.hpp>
+
 
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
 #include <signal.h>
@@ -771,6 +796,31 @@ void sigint_handler(int signo) {
 }
 #endif
 
+std::string url_decode(const std::string& str) {
+    std::string result;
+    char c;
+    int i = 0, len = str.length();
+    while (i < len) {
+        c = str[i];
+        if (c == '+') {
+            result += ' ';
+        }
+        else if (c == '%') {
+            char hex[3];
+            hex[0] = str[++i];
+            hex[1] = str[++i];
+            hex[2] = '\0';
+            result += strtol(hex, nullptr, 16);
+        }
+        else {
+            result += c;
+        }
+        i++;
+    }
+    return result;
+}
+
+
 const char * llama_print_system_info(void) {
     static std::string s;
 
@@ -791,15 +841,34 @@ const char * llama_print_system_info(void) {
     return s.c_str();
 }
 
+using tcp = boost::asio::ip::tcp; // alias IP
+
+
+/**************MAIN**************/
+
 int main(int argc, char ** argv) {
     ggml_time_init();
     const int64_t t_main_start_us = ggml_time_us();
-
     gpt_params params;
-
+    
+    // load all args
     if (gpt_params_parse(argc, argv, params) == false) {
         return 1;
     }
+
+
+    boost::asio::io_context io_context(1); // I/O context creation
+    tcp::endpoint endpoint(boost::asio::ip::make_address(params.serveraddress), params.serverport); // Endpoint TCP creation tcp::v4() 
+    tcp::acceptor acceptor(io_context, endpoint); // Socket accteptor creation
+
+    std::string address = endpoint.address().to_string();
+    int port = endpoint.port();
+    printf(ANSI_COLOR_GREEN);
+    printf("Server started on %s:%d\n", address.c_str(), port);
+    printf(ANSI_COLOR_RESET);
+
+
+
 
     if (params.seed < 0) {
         params.seed = time(NULL);
@@ -812,8 +881,7 @@ int main(int argc, char ** argv) {
     //     params.prompt = gpt_random_prompt(rng);
     // }
 
-//    params.prompt = R"(// this function checks if the number n is prime
-//bool is_prime(int n) {)";
+
 
     int64_t t_load_us = 0;
 
@@ -838,276 +906,244 @@ int main(int argc, char ** argv) {
                 params.n_threads, std::thread::hardware_concurrency(), llama_print_system_info());
     }
 
-    int n_past = 0;
-
-    int64_t t_sample_us  = 0;
-    int64_t t_predict_us = 0;
-
-    std::vector<float> logits;
-
-    // Add a space in front of the first character to match OG llama tokenizer behavior
-    // params.prompt.insert(0, 1, ' ');
-    // tokenize the prompt
-    std::vector<gpt_vocab::id> embd_inp;
-
-    // params.n_predict = std::min(params.n_predict, model.hparams.n_ctx - (int) embd_inp.size());
-
-    // // tokenize the reverse prompt
-    // std::vector<gpt_vocab::id> antiprompt_inp = ::llama_tokenize(vocab, params.antiprompt, false);
-
-
     std::vector<gpt_vocab::id> instruct_inp = ::llama_tokenize(vocab, " Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n", true);
     std::vector<gpt_vocab::id> prompt_inp = ::llama_tokenize(vocab, "### Instruction:\n\n", true);
     std::vector<gpt_vocab::id> response_inp = ::llama_tokenize(vocab, "### Response:\n\n", false);
-    embd_inp.insert(embd_inp.end(), instruct_inp.begin(), instruct_inp.end());
 
-    if(!params.prompt.empty()) {
-        std::vector<gpt_vocab::id> param_inp = ::llama_tokenize(vocab, params.prompt, true);
-        embd_inp.insert(embd_inp.end(), prompt_inp.begin(), prompt_inp.end());
-        embd_inp.insert(embd_inp.end(), param_inp.begin(), param_inp.end());
-        embd_inp.insert(embd_inp.end(), response_inp.begin(), response_inp.end());
-    }
+    int32_t instruct_token = instruct_inp.size()+prompt_inp.size()+response_inp.size();
+    int32_t completion_tokens = 0;
+    int32_t  prompt_tokens = 0;
+    int n_past;
+    int64_t t_sample_us ;
+    int64_t t_predict_us;
 
-    // fprintf(stderr, "\n");
-    // fprintf(stderr, "%s: prompt: '%s'\n", __func__, params.prompt.c_str());
-    // fprintf(stderr, "%s: number of tokens in prompt = %zu\n", __func__, embd_inp.size());
-    // for (int i = 0; i < (int) embd_inp.size(); i++) {
-    //     fprintf(stderr, "%6d -> '%s'\n", embd_inp[i], vocab.id_to_token.at(embd_inp[i]).c_str());
-    // }
-    // fprintf(stderr, "\n");
+    while (true) {
+        n_past = 0;
+        t_sample_us  = 0;
+        t_predict_us = 0;
 
-    if (params.interactive) {
-#if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
-        struct sigaction sigint_action;
-        sigint_action.sa_handler = sigint_handler;
-        sigemptyset (&sigint_action.sa_mask);
-        sigint_action.sa_flags = 0;
-        sigaction(SIGINT, &sigint_action, NULL);
-#elif defined (_WIN32)
-        signal(SIGINT, sigint_handler);
-
-        // Windows console ANSI color fix
-        DWORD mode = 0;
-        HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-        if (hConsole && hConsole != INVALID_HANDLE_VALUE && GetConsoleMode(hConsole, &mode)){
-            SetConsoleMode(hConsole, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-            SetConsoleOutputCP(CP_UTF8);
-        }
-#endif
-
-        fprintf(stderr, "%s: interactive mode on.\n", __func__);
-
-        // if(antiprompt_inp.size()) {
-        //     fprintf(stderr, "%s: reverse prompt: '%s'\n", __func__, params.antiprompt.c_str());
-        //     fprintf(stderr, "%s: number of tokens in reverse prompt = %zu\n", __func__, antiprompt_inp.size());
-        //     for (int i = 0; i < (int) antiprompt_inp.size(); i++) {
-        //         fprintf(stderr, "%6d -> '%s'\n", antiprompt_inp[i], vocab.id_to_token.at(antiprompt_inp[i]).c_str());
-        //     }
-        //     fprintf(stderr, "\n");
-        // }
-    }
-    fprintf(stderr, "sampling parameters: temp = %f, top_k = %d, top_p = %f, repeat_last_n = %i, repeat_penalty = %f\n", params.temp, params.top_k, params.top_p, params.repeat_last_n, params.repeat_penalty);
-    fprintf(stderr, "\n\n");
-
-    std::vector<gpt_vocab::id> embd;
-
-    // determine the required inference memory per token:
-    size_t mem_per_token = 0;
-    llama_eval(model, params.n_threads, 0, { 0, 1, 2, 3 }, logits, mem_per_token);
-
-    int last_n_size = params.repeat_last_n;
-    std::vector<gpt_vocab::id> last_n_tokens(last_n_size);
-    std::fill(last_n_tokens.begin(), last_n_tokens.end(), 0);
+        std::vector<float> logits;
+        std::vector<gpt_vocab::id> embd_inp;
+        std::string output;
+        std::string text;
+        tcp::socket socket(io_context);  // socket creation
+        acceptor.accept(socket); // accept connection
+        boost::beast::flat_buffer buffer; // buffer for received data
+        boost::beast::http::request<boost::beast::http::string_body> request; // HTTP request
+        boost::beast::http::read(socket, buffer, request); // read request
 
 
-    if (params.interactive) {
-        fprintf(stderr, "== Running in chat mode. ==\n"
-#if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__)) || defined (_WIN32)
-               " - Press Ctrl+C to interject at any time.\n"
-#endif
-               " - Press Return to return control to LLaMA.\n"
-               " - If you want to submit another line, end your input in '\\'.\n");
-    }
+        using namespace boost::beast::http;
 
-    // we may want to slide the input window along with the context, but for now we restrict to the context length
-    int remaining_tokens = model.hparams.n_ctx - embd_inp.size();
-    int input_consumed = 0;
-    bool input_noecho = true;
-
-    // prompt user immediately after the starting prompt has been loaded
-    if (params.interactive_start) {
-        is_interacting = true;
-    }
-
-    // set the color for the prompt which will be output initially
-    if (params.use_color) {
-        printf(ANSI_COLOR_YELLOW);
-    }
-
-    
-
-    while (remaining_tokens > 0) {
-        // predict
-        if (embd.size() > 0) {
-            const int64_t t_start_us = ggml_time_us();
-
-            if (!llama_eval(model, params.n_threads, n_past, embd, logits, mem_per_token)) {
-                fprintf(stderr, "Failed to predict\n");
-                return 1;
-            }
-
-            t_predict_us += ggml_time_us() - t_start_us;
-        }
-
-        n_past += embd.size();
-        embd.clear();
-
-        if (embd_inp.size() <= input_consumed && !is_interacting) {
-            // out of user input, sample next token
-            const float top_k = params.top_k;
-            const float top_p = params.top_p;
-            const float temp  = params.temp;
-            const float repeat_penalty = params.repeat_penalty;
-
-            const int n_vocab = model.hparams.n_vocab;
-
-            gpt_vocab::id id = 0;
-
-            {
-                const int64_t t_start_sample_us = ggml_time_us();
-
-                id = llama_sample_top_p_top_k(vocab, logits.data() + (logits.size() - n_vocab), last_n_tokens, repeat_penalty, top_k, top_p, temp, rng);
-
-                last_n_tokens.erase(last_n_tokens.begin());
-                last_n_tokens.push_back(id);
-
-                t_sample_us += ggml_time_us() - t_start_sample_us;
-            }
-
-            // add it to the context
-            embd.push_back(id);
-
-            // echo this to console
-            input_noecho = false;
-
-            // decrement remaining sampling budget
-            --remaining_tokens;
-        } else {
-            // some user input remains from prompt or interaction, forward it to processing
-            while (embd_inp.size() > input_consumed) {
-                // fprintf(stderr, "%6d -> '%s'\n", embd_inp[input_consumed], vocab.id_to_token.at(embd_inp[input_consumed]).c_str());
-
-                embd.push_back(embd_inp[input_consumed]);
-                last_n_tokens.erase(last_n_tokens.begin());
-                last_n_tokens.push_back(embd_inp[input_consumed]);
-                ++input_consumed;
-                if (embd.size() > params.n_batch) {
-                    break;
-                }
-            }
-
-            // reset color to default if we there is no pending user input
-            if (!input_noecho && params.use_color && embd_inp.size() == input_consumed) {
-                printf(ANSI_COLOR_RESET);
+        if (request.method() == verb::post) {
+        // read the raw request body from POST request
+            text = request.body().data();
+            printf("Received %s", text);
+        } else if (request.method() == verb::get) {
+            // get query string from GET request
+            std::string query = std::string(request.target());
+            if (auto pos = query.find("?text="); pos != std::string::npos) {
+                auto query_string = query.substr(pos + 6);
+                text = url_decode(query_string);
             }
         }
 
-        // display text
-        if (!input_noecho) {
-            for (auto id : embd) {
-                printf("%s", vocab.id_to_token[id].c_str());
-            }
-            fflush(stdout);
-        }
 
-        // in interactive mode, and not currently processing queued inputs;
-        // check if we should prompt the user for more
-        if (params.interactive && embd_inp.size() <= input_consumed) {
-            // check for reverse prompt
-            // if (antiprompt_inp.size() && std::equal(antiprompt_inp.rbegin(), antiprompt_inp.rend(), last_n_tokens.rbegin())) {
-            //     // reverse prompt found
-            //     is_interacting = true;
-            // }
-            if (is_interacting) {
-                // input_consumed =  0;
-                // embd_inp.erase(embd_inp.begin());
-                input_consumed = embd_inp.size();
+
+        
+
+            embd_inp.insert(embd_inp.end(), instruct_inp.begin(), instruct_inp.end());
+
+            if(!text.empty()) {
+                std::vector<gpt_vocab::id> param_inp = ::llama_tokenize(vocab, text, true);
+                prompt_tokens = param_inp.size();
+
                 embd_inp.insert(embd_inp.end(), prompt_inp.begin(), prompt_inp.end());
+                embd_inp.insert(embd_inp.end(), param_inp.begin(), param_inp.end());
+                embd_inp.insert(embd_inp.end(), response_inp.begin(), response_inp.end());
+                    
+
+
+
+                fprintf(stderr, "sampling parameters: temp = %f, top_k = %d, top_p = %f, repeat_last_n = %i, repeat_penalty = %f\n", params.temp, params.top_k, params.top_p, params.repeat_last_n, params.repeat_penalty);
+                fprintf(stderr, "\n\n");
+
+                std::vector<gpt_vocab::id> embd;
+
+                // determine the required inference memory per token:
+                size_t mem_per_token = 0;
+                llama_eval(model, params.n_threads, 0, { 0, 1, 2, 3 }, logits, mem_per_token);
+
+                int last_n_size = params.repeat_last_n;
+                std::vector<gpt_vocab::id> last_n_tokens(last_n_size);
+                std::fill(last_n_tokens.begin(), last_n_tokens.end(), 0);
+
+
+
+                // we may want to slide the input window along with the context, but for now we restrict to the context length
+                int remaining_tokens = model.hparams.n_ctx - embd_inp.size();
+                int input_consumed = 0;
+                bool input_noecho = true;
+
+            
+
+                // set the color for the prompt which will be output initially
+                /* if (params.use_color) {
+                        printf(ANSI_COLOR_YELLOW);
+                    }
+
+                    if (params.use_color) {
+                        printf(ANSI_COLOR_RESET);
+                    }
+                */
                 
+                while (remaining_tokens > 0) {
+                    // predict
+                    if (embd.size() > 0) {
+                        const int64_t t_start_us = ggml_time_us();
 
-                printf("\n> ");
+                        if (!llama_eval(model, params.n_threads, n_past, embd, logits, mem_per_token)) {
+                            fprintf(stderr, "Failed to predict\n");
+                            return 1;
+                        }
 
-                // currently being interactive
-                bool another_line=true;
-                while (another_line) {
-                    fflush(stdout);
-                    char buf[256] = {0};
-                    int n_read;
-                    if(params.use_color) printf(ANSI_BOLD ANSI_COLOR_GREEN);
-                    if (scanf("%255[^\n]%n%*c", buf, &n_read) <= 0) {
-                        // presumable empty line, consume the newline
-                        if (scanf("%*c") <= 0) { /*ignore*/ }
-                        n_read=0;
+                        t_predict_us += ggml_time_us() - t_start_us;
                     }
-                    if(params.use_color) printf(ANSI_COLOR_RESET);
 
-                    if (n_read > 0 && buf[n_read-1]=='\\') {
-                        another_line = true;
-                        buf[n_read-1] = '\n';
-                        buf[n_read] = 0;
+                    n_past += embd.size();
+                    embd.clear();
+
+                    if (embd_inp.size() <= input_consumed && !is_interacting) {
+                        // out of user input, sample next token
+                        const float top_k = params.top_k;
+                        const float top_p = params.top_p;
+                        const float temp  = params.temp;
+                        const float repeat_penalty = params.repeat_penalty;
+
+                        const int n_vocab = model.hparams.n_vocab;
+
+                        gpt_vocab::id id = 0;
+
+                        {
+                            const int64_t t_start_sample_us = ggml_time_us();
+
+                            id = llama_sample_top_p_top_k(vocab, logits.data() + (logits.size() - n_vocab), last_n_tokens, repeat_penalty, top_k, top_p, temp, rng);
+
+                            last_n_tokens.erase(last_n_tokens.begin());
+                            last_n_tokens.push_back(id);
+
+                            t_sample_us += ggml_time_us() - t_start_sample_us;
+                        }
+
+                        // add it to the context
+                        embd.push_back(id);
+
+                        // echo this to console
+                        input_noecho = false;
+
+                        // decrement remaining sampling budget
+                        --remaining_tokens;
                     } else {
-                        another_line = false;
-                        buf[n_read] = '\n';
-                        buf[n_read+1] = 0;
+                        // some user input remains from prompt or interaction, forward it to processing
+                        while (embd_inp.size() > input_consumed) {
+                            // fprintf(stderr, "%6d -> '%s'\n", embd_inp[input_consumed], vocab.id_to_token.at(embd_inp[input_consumed]).c_str());
+
+                            embd.push_back(embd_inp[input_consumed]);
+                            last_n_tokens.erase(last_n_tokens.begin());
+                            last_n_tokens.push_back(embd_inp[input_consumed]);
+                            ++input_consumed;
+                            if (embd.size() > params.n_batch) {
+                                break;
+                            }
+                        }
+
+                    
+                    }
+                    
+                    // display text
+                    if (!input_noecho) {
+                        /*for (auto id : embd) {
+                            printf("%s", vocab.id_to_token[id].c_str());
+                        }
+                        fflush(stdout);*/
+
+                        for (auto id : embd) {
+                            //printf("%s", vocab.id_to_token[id].c_str());
+                            output += vocab.id_to_token[id];
+                            completion_tokens++;
+                            printf("%s", vocab.id_to_token[id].c_str());
+                        }
+                
+                        
+                        fflush(stdout);
+
                     }
 
-                    std::vector<gpt_vocab::id> line_inp = ::llama_tokenize(vocab, buf, false);
-                    embd_inp.insert(embd_inp.end(), line_inp.begin(), line_inp.end());
-                    embd_inp.insert(embd_inp.end(), response_inp.begin(), response_inp.end());
 
-                    remaining_tokens -= prompt_inp.size() + line_inp.size() + response_inp.size();
 
-                    input_noecho = true; // do not echo this again
+
+            
+                    // end of text token
+                    if (embd.back() == 2) {
+                
+                            output += "\n[end of text]\n";
+                            
+                            break;
+                        
+                    }
                 }
 
-                is_interacting = false;
+
+                // build the JSON response
+
+                
+                auto timestamp = std::chrono::system_clock::now().time_since_epoch().count() / 1000000;
+                nlohmann::json json_response;
+                json_response["created"] = timestamp;
+                json_response["model"] = params.model;
+                json_response["output"] = output;
+                json_response["usage"]["prompt_tokens"] = prompt_tokens;
+                json_response["usage"]["completion_tokens"] = completion_tokens;
+                json_response["usage"]["total_tokens"] = prompt_tokens + completion_tokens;
+
+
+                // HTTP
+                boost::beast::http::response<boost::beast::http::string_body> response;
+                response.version(request.version());
+                response.result(boost::beast::http::status::ok);
+                response.set(boost::beast::http::field::server, "Alpaca.http server");
+                response.set(boost::beast::http::field::content_type, "application/json");
+                response.keep_alive(request.keep_alive());
+                response.body() =  json_response.dump();
+                response.prepare_payload();
+
+                boost::beast::http::write(socket, response); // send
+
+
+                //std::cout << output << std::endl;
+            
+                #if defined (_WIN32)
+                    signal(SIGINT, SIG_DFL);
+                #endif
+
+                // report timing
+                {
+                    const int64_t t_main_end_us = ggml_time_us();
+
+                    fprintf(stderr, "\n\n");
+                    fprintf(stderr, "%s: mem per token = %8zu bytes\n", __func__, mem_per_token);
+                    fprintf(stderr, "%s:     load time = %8.2f ms\n", __func__, t_load_us/1000.0f);
+                    fprintf(stderr, "%s:   sample time = %8.2f ms\n", __func__, t_sample_us/1000.0f);
+                    fprintf(stderr, "%s:  predict time = %8.2f ms / %.2f ms per token\n", __func__, t_predict_us/1000.0f, t_predict_us/1000.0f/n_past);
+                    fprintf(stderr, "%s:    total time = %8.2f ms\n", __func__, (t_main_end_us - t_main_start_us)/1000.0f);
+                }
+
+                
+            
             }
-        }
-
-        // end of text token
-        if (embd.back() == 2) {
-            if (params.interactive) {
-                is_interacting = true;
-                continue;
-            } else {
-                printf("\n");
-                fprintf(stderr, " [end of text]\n");
-                break;
-            }
-        }
+        
     }
-
-#if defined (_WIN32)
-    signal(SIGINT, SIG_DFL);
-#endif
-
-    // report timing
-    {
-        const int64_t t_main_end_us = ggml_time_us();
-
-        fprintf(stderr, "\n\n");
-        fprintf(stderr, "%s: mem per token = %8zu bytes\n", __func__, mem_per_token);
-        fprintf(stderr, "%s:     load time = %8.2f ms\n", __func__, t_load_us/1000.0f);
-        fprintf(stderr, "%s:   sample time = %8.2f ms\n", __func__, t_sample_us/1000.0f);
-        fprintf(stderr, "%s:  predict time = %8.2f ms / %.2f ms per token\n", __func__, t_predict_us/1000.0f, t_predict_us/1000.0f/n_past);
-        fprintf(stderr, "%s:    total time = %8.2f ms\n", __func__, (t_main_end_us - t_main_start_us)/1000.0f);
-    }
-
     ggml_free(model.ctx);
-
-    if (params.use_color) {
-        printf(ANSI_COLOR_RESET);
-    }
 
     return 0;
 }
