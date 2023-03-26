@@ -30,21 +30,30 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential
+          wget https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.gz
+          tar xzf boost_1_81_0.tar.gz -C . --strip-components=1 boost_1_81_0/boost
+          
 
       - name: Build
         id: make_build
         run: |
           make
-
+        
       - name: Zip executables
-        run: zip alpaca-linux.zip chat
+        run: zip alpaca.http-linux.zip server
+        
+      - name: Clear
+        run: |
+           rm -rf boost
+           rm boost_1_81_0.tar.gz
+          
 
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
           name: linux
           path: |
-            alpaca-linux.zip
+            alpaca.http-linux.zip
 
 
   macos-latest:
@@ -59,11 +68,13 @@ jobs:
         id: depends
         run: |
           brew update
+          wget https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.gz
+          tar xzf boost_1_81_0.tar.gz -C . --strip-components=1 boost_1_81_0/boost
 
       - name: Build
         id: make_build
         run: |
-          make chat_mac
+          make server_mac
 
       - name: Codesign executable
         if: ${{ ( github.event_name == 'push' && github.ref == 'refs/heads/master' ) || github.event.inputs.create_release == 'true' }}
@@ -80,10 +91,19 @@ jobs:
           security unlock-keychain -p $KEYCHAIN_PWD build.keychain
           security import certificate.p12 -k build.keychain -P $MACOS_CERTIFICATE_PWD -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k $KEYCHAIN_PWD build.keychain
-          /usr/bin/codesign --options runtime --force -s $MACOS_CERT_ID ./chat_mac -v
+          /usr/bin/codesign --options runtime --force -s $MACOS_CERT_ID ./server_mac -v
 
+
+
+      - name: Clear
+        run: |
+          rm -rf boost
+          rm boost_1_81_0.tar.gz
+          
+          
+          
       - name: Zip executables
-        run: zip alpaca-mac.zip chat_mac
+        run: zip alpaca.http-mac.zip server_mac
 
       - name: Notarize executables
         if: ${{ ( github.event_name == 'push' && github.ref == 'refs/heads/master' ) || github.event.inputs.create_release == 'true' }}
@@ -93,14 +113,14 @@ jobs:
           PROD_MACOS_NOTARIZATION_TEAM_ID: ${{ secrets.PROD_MACOS_NOTARIZATION_TEAM_ID }}
         run: |
           xcrun notarytool store-credentials "notarytool-profile" --apple-id "$PROD_MACOS_NOTARIZATION_APPLE_ID" --team-id "$PROD_MACOS_NOTARIZATION_TEAM_ID" --password "$PROD_MACOS_NOTARIZATION_PWD"
-          xcrun notarytool submit "alpaca-mac.zip" --keychain-profile "notarytool-profile" --wait
+          xcrun notarytool submit "alpaca.http-mac.zip" --keychain-profile "notarytool-profile" --wait
 
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
           name: macos
           path: |
-            alpaca-mac.zip
+            alpaca.http-mac.zip
 
 
   windows-latest:
@@ -114,6 +134,9 @@ jobs:
       - name: Build
         id: cmake_build
         run: |
+          Invoke-WebRequest -Uri https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.zip -OutFile boost_1_81_0.zip
+          7z x boost_1_81_0.zip boost_1_81_0/boost/*
+          mv boost_1_81_0/boost/ boost
           mkdir build
           cd build
           cmake ..
@@ -122,14 +145,21 @@ jobs:
       - name: Pack artifacts
         id: pack_artifacts
         run: |
-          7z a alpaca-win.zip .\build\Release\*
+          7z a alpaca.http-win.zip .\build\Release\*
 
+
+      - name: Clear
+        run: |
+          Remove-Item -Path boost_1_81_0 -Recurse -Force
+          Remove-Item -Path boost -Recurse -Force
+          Remove-Item -Path boost_1_81_0.zip -Force
+          
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
           name: windows
           path: |
-            alpaca-win.zip
+            alpaca.http-win.zip
 
 
   release:
@@ -162,8 +192,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} 
-          asset_path: windows/alpaca-win.zip
-          asset_name: alpaca-win.zip
+          asset_path: windows/alpaca.http-win.zip
+          asset_name: alpaca.http-win.zip
           asset_content_type: application/octet-stream
 
       - name: Upload mac release
@@ -172,8 +202,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} 
-          asset_path: macos/alpaca-mac.zip
-          asset_name: alpaca-mac.zip
+          asset_path: macos/alpaca.http-mac.zip
+          asset_name: alpaca.http-mac.zip
           asset_content_type: application/octet-stream
 
       - name: Upload linux release
@@ -183,6 +213,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} 
-          asset_path: linux/alpaca-linux.zip
-          asset_name: alpaca-linux.zip
+          asset_path: linux/alpaca.http-linux.zip
+          asset_name: alpaca.http-linux.zip
           asset_content_type: application/octet-stream
