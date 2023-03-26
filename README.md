@@ -1,7 +1,8 @@
 # Alpaca.http
 
-Run a fast ChatGPT-like model on your server. 
-This combines the [LLaMA foundation model](https://github.com/facebookresearch/llama) with an [open reproduction](https://github.com/tloen/alpaca-lora) of [Stanford Alpaca](https://github.com/tatsu-lab/stanford_alpaca) a fine-tuning of the base model to obey instructions (akin to the [RLHF](https://huggingface.co/blog/rlhf) used to train ChatGPT) and a set of modifications to [alpaca.cpp]( https://github.com/antimatter15/alpaca.cpp) to replace the chat interface with an http server interface.
+Start a fast ChatGPT-like model on your pc and interact remotely with it via HTTP requests
+
+This combines the [LLaMA foundation model](https://github.com/facebookresearch/llama) with an [open reproduction](https://github.com/tloen/alpaca-lora) of [Stanford Alpaca](https://github.com/tatsu-lab/stanford_alpaca) a fine-tuning of the base model to obey instructions (akin to the [RLHF](https://huggingface.co/blog/rlhf) used to train ChatGPT) and a set of modifications to [alpaca.cpp]( https://github.com/antimatter15/alpaca.cpp) to replace the chat interface with an http """API""" interface (only the parameter **text** for now).
 
 No performance seems to have been lost, the result is not streamed so it may look like it will take longer but it really isn't.
 
@@ -47,10 +48,7 @@ It's important to note that Alpaca.http does not handle conversations. This mean
 #### Making requests to the server
 To interact with the server, If you're using GET, you can simply include the prompt in the URL with the **text** parameter. If you're using POST, you'll need to send a raw request with the prompt in the body.
 
-##### Example of GET request: 
-```
-http://127.0.0.1:8080?text=Hello!
-```
+##### See the [examples](https://github.com/Nuked88/alpaca.http/tree/master/examples) directory
 
 #### Response format
 The server will return a JSON object with the following fields:
