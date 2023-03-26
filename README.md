@@ -7,7 +7,7 @@ No performance seems to have been lost, the result is not streamed so it may loo
 
 ## Get Started (7B)
 
-~~Download the zip file corresponding to your operating system from the [latest release](https://github.com/antimatter15/alpaca.cpp/releases/latest). On Windows, download `alpaca-win.zip`, on Mac (both Intel or ARM) download `alpaca-mac.zip`, and on Linux (x64) download `alpaca-linux.zip`. ~~
+
 No binary for now, i will provide it later
 
 Download `ggml-alpaca-7b-q4.bin` and place it in the same folder as the `server` executable in the zip file. There are several options: 
