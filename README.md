@@ -10,7 +10,17 @@ No performance seems to have been lost, the result is not streamed so it may loo
 
 No binary for now, i will provide it later
 
-Download `ggml-alpaca-7b-q4.bin` and place it in the same folder as the `server` executable in the zip file. There are several options: 
+Download `ggml-alpaca-7b-q4.bin` and place it in the same folder as the `server` executable in the zip file. I found this urls that should work: 
+
+#### Alpaca-7b Q4
+https://ipfs.io/ipfs/QmUp1UGeQFDqJKvtjbSYPBiZZKRjLp8shVP9hT8ZB9Ynv1
+
+### Alpaca-13b Q4
+magnet:?xt=urn:btih:053b3d54d2e77ff020ebddf51dad681f2a651071&dn=ggml-alpaca-13b-q4.bin&tr=udp%3a%2f%2ftracker.opentrackr.org%3a1337%2fannounce&tr=udp%3a%2f%2fopentracker.i2p.rocks%3a6969%2fannounce&tr=udp%3a%2f%2ftracker.openbittorrent.com%3a6969%2fannounce&tr=udp%3a%2f%2f9.rarbg.com%3a2810%2fannounce
+
+### Alpaca-30b Q4 (not tested)
+magnet:?xt=urn:btih:6K5O4J7DCKAMMMAJHWXQU72OYFXPZQJG&dn=ggml-alpaca-30b-q4.bin&xl=20333638921&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80%2Fannounce
+
 
 Once you've downloaded the model weights and placed them into the same directory as the `server` or `server.exe` executable, run:
 

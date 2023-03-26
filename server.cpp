@@ -938,7 +938,7 @@ int main(int argc, char ** argv) {
         if (request.method() == verb::post) {
         // read the raw request body from POST request
             text = request.body().data();
-            printf("Received %s", text);
+            //printf("Received %s", text);
         } else if (request.method() == verb::get) {
             // get query string from GET request
             std::string query = std::string(request.target());
