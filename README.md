@@ -8,7 +8,7 @@ No performance seems to have been lost, the result is not streamed so it may loo
 ## Get Started (7B)
 
 
-No binary for now, i will provide it later
+Download the zip file corresponding to your operating system from the [latest release](https://github.com/nuked88/alpaca.http/releases/latest). No MacOS release because i dont have a dev key :(  But you can still build it from source! 
 
 Download `ggml-alpaca-7b-q4.bin` and place it in the same folder as the `server` executable in the zip file. I found this urls that should work: 
 
@@ -45,7 +45,12 @@ The weights are based on the published fine-tunes from `alpaca-lora`, converted 
 It's important to note that Alpaca.http does not handle conversations. This means that you'll need to manage conversations separately in your program. Alpaca.http simply sends requests to the GGML Alpaca model and returns the responses.
 
 #### Making requests to the server
-To interact with the server, you'll need to make a request with the text parameter containing the prompt. If you're using GET, you can simply include the prompt in the URL. If you're using POST, you'll need to send a raw request with the prompt in the body.
+To interact with the server, If you're using GET, you can simply include the prompt in the URL with the **text** parameter. If you're using POST, you'll need to send a raw request with the prompt in the body.
+
+##### Example of GET request: 
+```
+http://127.0.0.1:8080?text=Hello!
+```
 
 #### Response format
 The server will return a JSON object with the following fields:
