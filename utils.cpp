@@ -80,8 +80,8 @@ void gpt_print_usage(int argc, char ** argv, const gpt_params & params) {
     fprintf(stderr, "\n");
     fprintf(stderr, "options:\n");
     fprintf(stderr, "  -h, --help            show this help message and exit\n");
-    fprintf(stderr, "  -sp, --server-port     change the default 8080 port\n");
-    fprintf(stderr, "  -sa, --server-address     change the default 0.0.0.0 address\n");
+    fprintf(stderr, "  -sp, --server-port N    change the default 8080 port\n");
+    fprintf(stderr, "  -sa, --server-address <address>   change the default 0.0.0.0 address\n");
     fprintf(stderr, "  -r PROMPT, --reverse-prompt PROMPT\n");
     fprintf(stderr, "                        in interactive mode, poll user input upon seeing PROMPT\n");
     fprintf(stderr, "  --color               colorise output to distinguish prompt and user input from generations\n");
