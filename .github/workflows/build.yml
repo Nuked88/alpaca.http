@@ -37,14 +37,14 @@ jobs:
           make
 
       - name: Zip executables
-        run: zip alpaca-linux.zip chat
+        run: zip alpaca-linux.zip server
 
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
           name: linux
           path: |
-            alpaca-linux.zip
+            alpaca.http-linux.zip
 
 
   macos-latest:
@@ -80,10 +80,10 @@ jobs:
           security unlock-keychain -p $KEYCHAIN_PWD build.keychain
           security import certificate.p12 -k build.keychain -P $MACOS_CERTIFICATE_PWD -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k $KEYCHAIN_PWD build.keychain
-          /usr/bin/codesign --options runtime --force -s $MACOS_CERT_ID ./chat_mac -v
+          /usr/bin/codesign --options runtime --force -s $MACOS_CERT_ID ./server_mac -v
 
       - name: Zip executables
-        run: zip alpaca-mac.zip chat_mac
+        run: zip alpaca.http-mac.zip server_mac
 
       - name: Notarize executables
         if: ${{ ( github.event_name == 'push' && github.ref == 'refs/heads/master' ) || github.event.inputs.create_release == 'true' }}
@@ -100,7 +100,7 @@ jobs:
         with:
           name: macos
           path: |
-            alpaca-mac.zip
+            alpaca.http-mac.zip
 
 
   windows-latest:
@@ -122,14 +122,14 @@ jobs:
       - name: Pack artifacts
         id: pack_artifacts
         run: |
-          7z a alpaca-win.zip .\build\Release\*
+          7z a alpaca.http-win.zip .\build\Release\*
 
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
           name: windows
           path: |
-            alpaca-win.zip
+            alpaca.http-win.zip
 
 
   release:
@@ -162,8 +162,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} 
-          asset_path: windows/alpaca-win.zip
-          asset_name: alpaca-win.zip
+          asset_path: windows/alpaca.http-win.zip
+          asset_name: alpaca.http-win.zip
           asset_content_type: application/octet-stream
 
       - name: Upload mac release
@@ -172,8 +172,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} 
-          asset_path: macos/alpaca-mac.zip
-          asset_name: alpaca-mac.zip
+          asset_path: macos/alpaca.http-mac.zip
+          asset_name: alpaca.http-mac.zip
           asset_content_type: application/octet-stream
 
       - name: Upload linux release
@@ -183,6 +183,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} 
-          asset_path: linux/alpaca-linux.zip
-          asset_name: alpaca-linux.zip
+          asset_path: linux/alpaca.http-linux.zip
+          asset_name: alpaca.http-linux.zip
           asset_content_type: application/octet-stream
