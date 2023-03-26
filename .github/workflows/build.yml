@@ -18,7 +18,7 @@ env:
 
 jobs:
   ubuntu-latest:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Clone
@@ -97,7 +97,7 @@ jobs:
 
 
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: ${{ ( github.event_name == 'push' && github.ref == 'refs/heads/master' ) || github.event.inputs.create_release == 'true' }}
     needs: 
       - windows-latest
