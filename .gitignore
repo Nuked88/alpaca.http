@@ -39,3 +39,4 @@ Release/
 CMakeFiles/
 CMakeCache.txt
 *.dir/
+.hypothesis/
