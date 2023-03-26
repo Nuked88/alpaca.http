@@ -1086,7 +1086,7 @@ int main(int argc, char ** argv) {
                     // end of text token
                     if (embd.back() == 2) {
                 
-                            output += "\n[end of text]\n";
+                            // output += "\n[end of text]\n";
                             
                             break;
                         
