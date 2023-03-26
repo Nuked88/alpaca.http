@@ -110,7 +110,7 @@ make server
 
 - Download and install CMake: <https://cmake.org/download/>
 - Download and install `git`. If you've never used git before, consider a GUI client like <https://desktop.github.com/>
-- Clone this repo using your git client of choice (for GitHub Desktop, go to File -> Clone repository -> From URL and paste `https://github.com/antimatter15/alpaca.cpp` in as the URL)
+- Clone this repo using your git client of choice (for GitHub Desktop, go to File -> Clone repository -> From URL and paste `https://github.com/Nuked88/alpaca.http` in as the URL)
 - Open a Windows Terminal inside the folder you cloned the repository to
 - Run the following commands one by one:
 
