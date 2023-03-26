@@ -41,6 +41,12 @@ jobs:
         
       - name: Zip executables
         run: zip alpaca.http-linux.zip server
+        
+      - name: Clear
+        run: |
+           rm -rf boost
+           rm boost_1_81_0.tar.gz
+          
 
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
@@ -62,6 +68,8 @@ jobs:
         id: depends
         run: |
           brew update
+          wget https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.gz
+          tar xzf boost_1_81_0.tar.gz -C . --strip-components=1 boost_1_81_0/boost
 
       - name: Build
         id: make_build
@@ -142,9 +150,9 @@ jobs:
 
       - name: Clear
         run: |
-          rm -rf boost_1_81_0
-          rm -rf boost
-          rm boost_1_81_0.zip
+          Remove-Item -Path boost_1_81_0 -Recurse -Force
+          Remove-Item -Path boost -Recurse -Force
+          Remove-Item -Path boost_1_81_0.zip -Force
           
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
