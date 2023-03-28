@@ -458,7 +458,8 @@ int main(int argc, char ** argv) {
                 std::string current_p = llama_token_to_str(ctx, id);
                 output += current_p;
                 completion_tokens++;
-                printf("%s", current_p);
+                //printf("%s", current_p);
+                std::cout << current_p;
             }
             fflush(stdout);
         }
