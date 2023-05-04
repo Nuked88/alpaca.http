@@ -99,7 +99,7 @@ To use this library, you need to have Boost installed on your system.
 
 ```sh
 git clone https://github.com/Nuked88/alpaca.http.git
-cd alpaca.cpp
+cd alpaca.http
 
 make server
 ./server
