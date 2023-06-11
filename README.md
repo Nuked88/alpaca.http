@@ -1,3 +1,7 @@
+# IMPORTANT
+FOR NEWER MODELS SUPPORT AND PERFORMANCE IMPROVEMENT (LIKE GPU SUPPORT) PLEASE REFER TO [LLAMA.HTTP](https://github.com/Nuked88/llama.http) (THE SERVER IS IN THE EXAMPLES/SERVER FOLDER)
+
+
 # Alpaca.http
 
 Start a fast ChatGPT-like model on your pc and interact remotely with it via HTTP requests
